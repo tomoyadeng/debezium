@@ -104,7 +104,7 @@ public class MemoryLogMinerEventProcessor extends AbstractLogMinerEventProcessor
                 for (String transactionKey : getTransactionCache().keySet()) {
                     if (transactionKey.startsWith(transactionPrefix)) {
                         transaction = getTransactionCache().get(transactionKey);
-                        if (transaction != null && transaction.removeEventWithRowId(row.getRowId())) {
+                        if (transaction != null && transaction.removeEventWithRow(row)) {
                             // We successfully found a transaction with the same XISUSN and XIDSLT and that
                             // transaction included a change for the specified row id.
                             LOGGER.debug("Undo change '{}' applied to transaction '{}'", row, transactionKey);
@@ -119,7 +119,7 @@ public class MemoryLogMinerEventProcessor extends AbstractLogMinerEventProcessor
             }
         }
         else {
-            if (!transaction.removeEventWithRowId(row.getRowId())) {
+            if (!transaction.removeEventWithRow(row)) {
                 LOGGER.warn("Cannot undo change '{}' since event with row-id {} was not found.", row, row.getRowId());
             }
         }

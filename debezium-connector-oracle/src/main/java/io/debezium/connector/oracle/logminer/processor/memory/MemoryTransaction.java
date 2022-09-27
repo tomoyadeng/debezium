@@ -7,13 +7,16 @@ package io.debezium.connector.oracle.logminer.processor.memory;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.connector.oracle.Scn;
 import io.debezium.connector.oracle.logminer.events.LogMinerEvent;
+import io.debezium.connector.oracle.logminer.events.LogMinerEventRow;
 import io.debezium.connector.oracle.logminer.processor.AbstractTransaction;
 
 /**
@@ -27,6 +30,8 @@ public class MemoryTransaction extends AbstractTransaction {
 
     private int numberOfEvents;
     private List<LogMinerEvent> events;
+
+    private final Set<String> rollbackEvents = new HashSet<>();
 
     public MemoryTransaction(String transactionId, Scn startScn, Instant changeTime, String userName) {
         super(transactionId, startScn, changeTime, userName);
@@ -53,14 +58,47 @@ public class MemoryTransaction extends AbstractTransaction {
         return events;
     }
 
-    public boolean removeEventWithRowId(String rowId) {
-        return events.removeIf(event -> {
-            if (event.getRowId().equals(rowId)) {
-                LOGGER.trace("Undo applied for event {}.", event);
-                return true;
-            }
+    public boolean removeEventWithRow(LogMinerEventRow row) {
+        String uniqueKey = row.getRsId() + ":" + row.getSsn();
+        if (rollbackEvents.contains(uniqueKey)) {
+            LOGGER.warn("{} already rollback.", uniqueKey);
             return false;
-        });
+        }
+        else {
+            boolean remove = removeEventWithRowId(row.getRowId());
+            if (remove) {
+                rollbackEvents.add(uniqueKey);
+            }
+            return remove;
+        }
+    }
+
+    public boolean removeEventWithRowId(String rowId) {
+        // return events.removeIf(event -> {
+        // if (event.getRowId().equals(rowId)) {
+        // LOGGER.trace("Undo applied for event {}.", event);
+        // return true;
+        // }
+        // return false;
+        // });
+        int size = events.size();
+        int idx = size - 1;
+        boolean remove = false;
+        if (size > 0) {
+            for (int i = size - 1; i >= 0; i--) {
+                LogMinerEvent event = events.get(i);
+                if (event.getRowId().equals(rowId)) {
+                    LOGGER.debug("Undo applied for event {}.", event);
+                    idx = i;
+                    remove = true;
+                    break;
+                }
+            }
+        }
+        if (remove) {
+            events.remove(idx);
+        }
+        return remove;
     }
 
     @Override

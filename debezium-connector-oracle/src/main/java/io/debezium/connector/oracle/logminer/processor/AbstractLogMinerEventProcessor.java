@@ -252,6 +252,7 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
      * @throws InterruptedException if the dispatcher was interrupted sending an event
      */
     protected void processRow(OraclePartition partition, LogMinerEventRow row) throws SQLException, InterruptedException {
+        LOGGER.debug("process row: {}", row);
         if (!row.getEventType().equals(EventType.MISSING_SCN)) {
             lastProcessedScn = row.getScn();
         }

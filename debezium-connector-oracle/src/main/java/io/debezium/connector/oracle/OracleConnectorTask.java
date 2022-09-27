@@ -138,7 +138,10 @@ public class OracleConnectorTask extends BaseSourceTask<OraclePartition, OracleO
     @Override
     public List<SourceRecord> doPoll() throws InterruptedException {
         List<DataChangeEvent> records = queue.poll();
-
+        for (DataChangeEvent record : records) {
+            SourceRecord srcRecord = record.getRecord();
+            LOGGER.debug("ready to send kafka record, key: {}, value: {}", srcRecord.key(), srcRecord.value());
+        }
         List<SourceRecord> sourceRecords = records.stream()
                 .map(DataChangeEvent::getRecord)
                 .collect(Collectors.toList());
