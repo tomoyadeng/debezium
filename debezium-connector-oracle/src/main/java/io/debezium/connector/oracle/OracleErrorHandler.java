@@ -39,6 +39,7 @@ public class OracleErrorHandler extends ErrorHandler {
             "ORA-04030", // out of process memory
             "ORA-00310", // archived log contains sequence *; sequence * required
             "ORA-01343", // LogMiner encountered corruption in the logstream
+            "ORA-01289", // cannot add duplicate logfile
             "ORA-01371"); // Complete LogMiner dictionary not found
 
     /**
