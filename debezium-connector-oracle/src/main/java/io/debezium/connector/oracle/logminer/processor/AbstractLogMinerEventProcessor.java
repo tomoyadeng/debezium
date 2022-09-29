@@ -80,6 +80,10 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
     private Scn lastProcessedScn = Scn.NULL;
     private boolean sequenceUnavailable = false;
 
+    private boolean unsupportedRow = false;
+
+    private final Map<String, Integer> unsupportedRsIds = new HashMap<>();
+
     public AbstractLogMinerEventProcessor(ChangeEventSourceContext context,
                                           OracleConnectorConfig connectorConfig,
                                           OracleDatabaseSchema schema,
@@ -264,6 +268,11 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
                 return;
             }
         }
+
+        if (row.getEventType() != EventType.UNSUPPORTED) {
+            unsupportedRsIds.remove(getUniqueKey(row));
+        }
+
         switch (row.getEventType()) {
             case MISSING_SCN:
                 handleMissingScn(row);
@@ -784,6 +793,22 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
                     row.getScn(),
                     row.getThread());
         }
+        String uniqueKey = getUniqueKey(row);
+        Integer count = unsupportedRsIds.getOrDefault(uniqueKey, 0);
+        String message = row.getScn() + " : " + uniqueKey + " unsupported";
+        if (count >= 3) {
+            LOGGER.error("{} count {}", message, count);
+            unsupportedRow = false;
+            return;
+        }
+        count++;
+        LOGGER.warn("{} count {}", message, count);
+        unsupportedRsIds.put(uniqueKey, count);
+        unsupportedRow = true;
+    }
+
+    private String getUniqueKey(LogMinerEventRow row) {
+        return row.getRsId() + ":" + row.getSsn();
     }
 
     /**
@@ -834,6 +859,10 @@ public abstract class AbstractLogMinerEventProcessor<T extends AbstractTransacti
      * @throws SQLException if there was a database exception
      */
     private boolean hasNextWithMetricsUpdate(ResultSet resultSet) throws SQLException {
+        if (unsupportedRow) {
+            unsupportedRow = false;
+            return false;
+        }
         Instant start = Instant.now();
         boolean result = false;
         try {

@@ -11,11 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -141,8 +137,8 @@ public class LogMinerHelper {
         LOGGER.trace("Getting logs to be mined for offset scn {}", offsetScn);
 
         final List<LogFile> logFiles = new ArrayList<>();
-        final List<LogFile> onlineLogFiles = new ArrayList<>();
-        final List<LogFile> archivedLogFiles = new ArrayList<>();
+        final Set<LogFile> onlineLogFiles = new HashSet<>();
+        final Set<LogFile> archivedLogFiles = new HashSet<>();
 
         connection.query(SqlUtils.allMinableLogsQuery(offsetScn, archiveLogRetention, archiveLogOnlyMode, archiveDestinationName), rs -> {
             while (rs.next()) {
@@ -152,16 +148,17 @@ public class LogMinerHelper {
                 String status = rs.getString(5);
                 String type = rs.getString(6);
                 BigInteger sequence = new BigInteger(rs.getString(7));
+                String thread = rs.getString(10);
                 if ("ARCHIVED".equals(type)) {
                     // archive log record
-                    LogFile logFile = new LogFile(fileName, firstScn, nextScn, sequence, LogFile.Type.ARCHIVE);
+                    LogFile logFile = new LogFile(fileName, firstScn, nextScn, sequence, LogFile.Type.ARCHIVE, thread);
                     if (logFile.getNextScn().compareTo(offsetScn) >= 0) {
                         LOGGER.trace("Archive log {} with SCN range {} to {} sequence {} to be added.", fileName, firstScn, nextScn, sequence);
                         archivedLogFiles.add(logFile);
                     }
                 }
                 else if ("ONLINE".equals(type)) {
-                    LogFile logFile = new LogFile(fileName, firstScn, nextScn, sequence, LogFile.Type.REDO, CURRENT.equalsIgnoreCase(status));
+                    LogFile logFile = new LogFile(fileName, firstScn, nextScn, sequence, LogFile.Type.REDO, CURRENT.equalsIgnoreCase(status), thread);
                     if (logFile.isCurrent() || logFile.getNextScn().compareTo(offsetScn) >= 0) {
                         LOGGER.trace("Online redo log {} with SCN range {} to {} ({}) sequence {} to be added.", fileName, firstScn, nextScn, status, sequence);
                         onlineLogFiles.add(logFile);
@@ -176,10 +173,11 @@ public class LogMinerHelper {
         // DBZ-3563
         // To avoid duplicate log files (ORA-01289 cannot add duplicate logfile)
         // Remove the archive log which has the same sequence number.
-        for (LogFile redoLog : onlineLogFiles) {
-            archivedLogFiles.removeIf(f -> {
-                if (f.getSequence().equals(redoLog.getSequence())) {
-                    LOGGER.trace("Removing archive log {} with duplicate sequence {} to {}", f.getFileName(), f.getSequence(), redoLog.getFileName());
+        for (LogFile archiveLog : archivedLogFiles) {
+            onlineLogFiles.removeIf(f -> {
+                if (f.equals(archiveLog)) {
+                    LOGGER.debug("Removing redo log {} with duplicate sequence {} thread {} to {}", f.getFileName(), f.getSequence(), f.getThread(),
+                            archiveLog.getFileName());
                     return true;
                 }
                 return false;
