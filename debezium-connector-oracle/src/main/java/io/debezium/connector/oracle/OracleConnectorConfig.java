@@ -188,6 +188,16 @@ public class OracleConnectorConfig extends HistorizedRelationalDatabaseConnector
             .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED, 18))
             .withDescription("Hours to keep long running transactions in transaction buffer between log mining sessions.  By default, all transactions are retained.");
 
+    public static final Field LOG_MINING_TRANSACTION_RETENTION_MINUTES = Field.create("log.mining.transaction.retention.minutes")
+            .withDisplayName("Log Mining long running transaction retention(minutes)")
+            .withType(Type.LONG)
+            .withWidth(Width.SHORT)
+            .withImportance(Importance.MEDIUM)
+            .withDefault(0)
+            .withValidation(Field::isNonNegativeInteger)
+            .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED, 18))
+            .withDescription("Hours to keep long running transactions in transaction buffer between log mining sessions.  By default, all transactions are retained.");
+
     public static final Field RAC_NODES = Field.create("rac.nodes")
             .withDisplayName("Oracle RAC nodes")
             .withType(Type.STRING)
@@ -523,6 +533,7 @@ public class OracleConnectorConfig extends HistorizedRelationalDatabaseConnector
                     LOG_MINING_SLEEP_TIME_MAX_MS,
                     LOG_MINING_SLEEP_TIME_INCREMENT_MS,
                     LOG_MINING_TRANSACTION_RETENTION,
+                    LOG_MINING_TRANSACTION_RETENTION_MINUTES,
                     LOG_MINING_ARCHIVE_LOG_ONLY_MODE,
                     LOB_ENABLED,
                     LOG_MINING_USERNAME_EXCLUDE_LIST,
@@ -636,7 +647,13 @@ public class OracleConnectorConfig extends HistorizedRelationalDatabaseConnector
         this.logMiningSleepTimeMax = Duration.ofMillis(config.getInteger(LOG_MINING_SLEEP_TIME_MAX_MS));
         this.logMiningSleepTimeDefault = Duration.ofMillis(config.getInteger(LOG_MINING_SLEEP_TIME_DEFAULT_MS));
         this.logMiningSleepTimeIncrement = Duration.ofMillis(config.getInteger(LOG_MINING_SLEEP_TIME_INCREMENT_MS));
-        this.logMiningTransactionRetention = Duration.ofHours(config.getInteger(LOG_MINING_TRANSACTION_RETENTION));
+
+        int minutes = config.getInteger(LOG_MINING_TRANSACTION_RETENTION_MINUTES);
+        if (minutes > 0) {
+            this.logMiningTransactionRetention = Duration.ofMinutes(minutes);
+        } else {
+            this.logMiningTransactionRetention = Duration.ofHours(config.getInteger(LOG_MINING_TRANSACTION_RETENTION));
+        }
         this.archiveLogOnlyMode = config.getBoolean(LOG_MINING_ARCHIVE_LOG_ONLY_MODE);
         this.logMiningUsernameExcludes = Strings.setOf(config.getString(LOG_MINING_USERNAME_EXCLUDE_LIST), String::new);
         this.logMiningArchiveDestinationName = config.getString(LOG_MINING_ARCHIVE_DESTINATION_NAME);

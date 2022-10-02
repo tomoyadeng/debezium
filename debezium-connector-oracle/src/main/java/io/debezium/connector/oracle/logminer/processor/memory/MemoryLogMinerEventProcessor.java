@@ -318,7 +318,7 @@ public class MemoryLogMinerEventProcessor extends AbstractLogMinerEventProcessor
     protected Optional<Scn> getLastScnToAbandon(OracleConnection connection, Scn offsetScn, Duration retention) {
         try {
             Float diffInDays = connection.singleOptionalValue(SqlUtils.diffInDaysQuery(offsetScn), rs -> rs.getFloat(1));
-            if (diffInDays != null && (diffInDays * 24) > retention.toHours()) {
+            if (diffInDays != null && (diffInDays * 24 * 60) > retention.toMinutes()) {
                 return Optional.of(offsetScn);
             }
             return Optional.empty();
