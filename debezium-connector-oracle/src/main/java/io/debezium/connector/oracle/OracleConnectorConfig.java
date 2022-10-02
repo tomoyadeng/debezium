@@ -651,7 +651,8 @@ public class OracleConnectorConfig extends HistorizedRelationalDatabaseConnector
         int minutes = config.getInteger(LOG_MINING_TRANSACTION_RETENTION_MINUTES);
         if (minutes > 0) {
             this.logMiningTransactionRetention = Duration.ofMinutes(minutes);
-        } else {
+        }
+        else {
             this.logMiningTransactionRetention = Duration.ofHours(config.getInteger(LOG_MINING_TRANSACTION_RETENTION));
         }
         this.archiveLogOnlyMode = config.getBoolean(LOG_MINING_ARCHIVE_LOG_ONLY_MODE);
